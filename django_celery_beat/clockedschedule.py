@@ -3,6 +3,7 @@
 from celery import schedules
 from celery.utils.time import maybe_make_aware
 from collections import namedtuple
+from .utils import NEVER_CHECK_TIMEOUT
 
 try:
     from celery.schedules import schedstate  # Celery >=3.1.0
@@ -29,14 +30,14 @@ class clocked(schedules.BaseSchedule):
 
     def is_due(self, last_run_at):
         if not self.enabled:
-            return schedstate(is_due=False, next=None)
+            return schedstate(is_due=False, next=NEVER_CHECK_TIMEOUT)
         rem_delta = self.remaining_estimate(None)
         remaining_s = max(rem_delta.total_seconds(), 0)
         if remaining_s == 0:
             if self.model:
                 self.model.enabled = False
                 self.model.save()
-            return schedstate(is_due=True, next=None)
+            return schedstate(is_due=True, next=NEVER_CHECK_TIMEOUT)
         return schedstate(is_due=False, next=remaining_s)
 
     def __repr__(self):

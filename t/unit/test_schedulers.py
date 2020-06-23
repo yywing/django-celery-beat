@@ -21,7 +21,7 @@ from django_celery_beat.models import (
     PeriodicTask, PeriodicTasks, IntervalSchedule, CrontabSchedule,
     SolarSchedule, ClockedSchedule, DAYS
 )
-from django_celery_beat.utils import make_aware
+from django_celery_beat.utils import make_aware, NEVER_CHECK_TIMEOUT
 
 _ids = count(0)
 
@@ -288,7 +288,7 @@ class test_ModelEntry(SchedulerCase):
         e2 = self.Entry(m2, app=self.app)
         isdue, delay = e2.is_due()
         assert not isdue
-        assert delay is None
+        assert delay == NEVER_CHECK_TIMEOUT
 
 
 @pytest.mark.django_db()
