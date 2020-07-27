@@ -21,9 +21,11 @@ from django.core.exceptions import ObjectDoesNotExist
 from .models import (
     PeriodicTask, PeriodicTasks,
     CrontabSchedule, IntervalSchedule,
-    SolarSchedule, ClockedSchedule
+    SolarSchedule, ClockedSchedule,
+    MultipleTimeSchedule
 )
 from .clockedschedule import clocked
+from .multiple_time_schedule import multipletime
 from .utils import NEVER_CHECK_TIMEOUT
 
 try:
@@ -51,7 +53,8 @@ class ModelEntry(ScheduleEntry):
         (schedules.crontab, CrontabSchedule, 'crontab'),
         (schedules.schedule, IntervalSchedule, 'interval'),
         (schedules.solar, SolarSchedule, 'solar'),
-        (clocked, ClockedSchedule, 'clocked')
+        (clocked, ClockedSchedule, 'clocked'),
+        (multipletime, MultipleTimeSchedule, 'multipletime'),
     )
     save_fields = ['last_run_at', 'total_run_count', 'no_changes']
 
