@@ -3,6 +3,7 @@
 # -- a recursive loader import!
 from django.conf import settings
 from django.utils import timezone
+from datetime import datetime, date
 
 is_aware = timezone.is_aware
 # celery schedstate return None will make it not work
@@ -46,3 +47,9 @@ def is_database_scheduler(scheduler):
         scheduler == 'django'
         or issubclass(symbol_by_name(scheduler), DatabaseScheduler)
     )
+
+
+def subtract_time(t1, t2):
+    """Return t1 - t2"""
+    t = datetime.combine(date.today(), t1) - datetime.combine(date.today(), t2)
+    return t

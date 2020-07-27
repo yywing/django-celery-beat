@@ -9,11 +9,12 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import signals
 from django.utils.translation import gettext_lazy as _
-
+from django.contrib.postgres.fields import ArrayField
 from . import managers, validators
 from .tzcrontab import TzAwareCrontab
 from .utils import make_aware, now
 from .clockedschedule import clocked
+from .multiple_time_schedule import multipletime
 
 
 DAYS = 'days'
@@ -177,6 +178,45 @@ class IntervalSchedule(models.Model):
     @property
     def period_singular(self):
         return self.period[:-1]
+
+
+class MultipleTimeSchedule(models.Model):
+    times = ArrayField(models.TimeField(), default=list)
+    timezone = timezone_field.TimeZoneField(
+        default='UTC',
+        verbose_name=_('Multiple Time Timezone'),
+        help_text=_(
+            'Timezone to Run the Multiple Time Schedule on.  Default is UTC.'),
+    )
+
+    class Meta:
+        """Table information."""
+        verbose_name = _('multiple_time')
+        verbose_name_plural = _('multiple_time')
+        ordering = ['timezone']
+
+    def __str__(self):
+        return '{} {}'.format(self.timezone, self.times)
+
+    @property
+    def schedule(self):
+        c = multipletime(
+            timezone=self.timezone,
+            times=self.times
+        )
+        return c
+
+    @classmethod
+    def from_schedule(cls, schedule):
+        spec = {'times': schedule.times,
+                'timezone': schedule.timezone}
+        try:
+            return cls.objects.get(**spec)
+        except cls.DoesNotExist:
+            return cls(**spec)
+        except MultipleObjectsReturned:
+            cls.objects.filter(**spec).delete()
+            return cls(**spec)
 
 
 class ClockedSchedule(models.Model):
@@ -400,6 +440,12 @@ class PeriodicTask(models.Model):
         help_text=_('Clocked Schedule to run the task on.  '
                     'Set only one schedule type, leave the others null.'),
     )
+    multipletime = models.ForeignKey(
+        MultipleTimeSchedule, on_delete=models.CASCADE, null=True, blank=True,
+        verbose_name=_('Multipletime Schedule'),
+        help_text=_('Multipletime Schedule to run the task on.  '
+                    'Set only one schedule type, leave the others null.'),
+    )
     # TODO: use django's JsonField
     args = models.TextField(
         blank=True, default='[]',
@@ -523,7 +569,7 @@ class PeriodicTask(models.Model):
     def validate_unique(self, *args, **kwargs):
         super(PeriodicTask, self).validate_unique(*args, **kwargs)
 
-        schedule_types = ['interval', 'crontab', 'solar', 'clocked']
+        schedule_types = ['interval', 'crontab', 'solar', 'clocked', 'multipletime']
         selected_schedule_types = [s for s in schedule_types
                                    if getattr(self, s)]
 
@@ -578,6 +624,8 @@ class PeriodicTask(models.Model):
             fmt = '{0.name}: {0.solar}'
         if self.clocked:
             fmt = '{0.name}: {0.clocked}'
+        if self.multipletime:
+            fmt = '{0.name}: {0.multipletime}'
         return fmt.format(self)
 
     @property
@@ -590,6 +638,8 @@ class PeriodicTask(models.Model):
             return self.solar.schedule
         if self.clocked:
             return self.clocked.schedule
+        if self.multipletime:
+            return self.multipletime.schedule
 
 
 signals.pre_delete.connect(PeriodicTasks.changed, sender=PeriodicTask)
